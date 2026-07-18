@@ -1,11 +1,10 @@
-const { listContainers, pingDocker } = require('./services/docker.service');
 
-app.get('/docker/ping', async (req, res) => {
-  const result = await pingDocker();
-  res.json(result);
-});
+const express = require('express');
+const router = express.Router();
+const { handleDeployRequest } = require('../controllers/deploy.controller');
+const { listDeployments } = require('../controllers/deployment.controller');
 
-app.get('/docker/containers', async (req, res) => {
-  const containers = await listContainers();
-  res.json(containers);
-});
+router.post('/deploy', handleDeployRequest);
+router.get('/deployments', listDeployments);
+
+module.exports = router;
