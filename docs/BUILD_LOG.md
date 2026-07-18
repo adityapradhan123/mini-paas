@@ -103,3 +103,172 @@ the persisted record with containerId intact.
 deployment record is stuck at "deploying" forever. Need a try/catch that
 sets status to "failed" on error — will fix this in Week 2 alongside proper
 error handling.
+
+## week 2
+## Day 1-2 — Feature: Proper error handling for deploy pipeline
+
+**Goal:** Ensure failed builds/deploys are recorded with a clear reason,
+instead of leaving deployment records stuck at "deploying" forever.
+
+**Approach:**
+Moved deploy logic out of the route handler into a dedicated
+`deploy.controller.js`. Wrapped the build+run steps in try/catch; on success,
+status becomes "live". On failure, status becomes "failed" and the actual
+error message is saved to a new `errorMessage` field, then re-thrown so the
+route can still return a proper HTTP error response.
+
+**Problem hit:** Briefly hit an "Unable to get absolute uri" error from
+tar-fs — turned out to be a stale server process, resolved after a clean
+restart.
+
+**Result:** Tested by intentionally causing a container name conflict (ran
+deploy twice without removing the first container). Confirmed via
+GET /deployments that failures are recorded with status "failed" and a
+readable Docker error message, while the original success stayed "live".
+
+**Reference(s):**
+- Docker Engine API error codes: https://docs.docker.com/engine/api/v1.43/
+
+**What I'd do differently:** Should clean up stopped/conflicting containers
+automatically in a future pass, rather than requiring manual docker rm.
+
+
+## Day 3 — Feature: Dynamic port allocation + unique container naming
+
+**Goal:** Allow multiple deployments to run simultaneously without port or
+name collisions, instead of hardcoding port 3001 and a fixed container name.
+
+**Approach:**
+Used `get-port` (pinned to v5.1.1 for CommonJS compatibility, since v7+ is
+ESM-only) to find a free port in a defined range (3000-3100) at deploy time.
+Appended `Date.now()` to the container name to guarantee uniqueness across
+deploys.
+
+**Problem hit:** None on implementation. Had a leftover container from
+earlier testing with a stale name, but `docker ps -a` confirmed it wasn't
+actually blocking anything.
+
+**Result:** Ran the deploy route twice back-to-back with no cleanup in
+between. `docker ps` confirmed two containers running concurrently on
+different ports (3000 and 3001), each independently reachable.
+
+**Reference(s):**
+- get-port docs: https://github.com/sindresorhus/get-port
+
+**What I'd do differently:** Port range (3000-3100) is arbitrary right now —
+will need to make this configurable, and eventually track allocated ports in
+MongoDB to avoid relying purely on OS-level port availability checks.
+
+## Day 4-5 — Feature: Deploy from GitHub repo URL (not local folder)
+
+**Goal:** Accept a GitHub repo URL via API, clone it server-side, and deploy
+it — the actual core promise of a PaaS.
+
+**Approach:**
+Used `simple-git` to clone into a temp directory (`backend/tmp/<appName>-
+<timestamp>`), then fed that path into the existing `deployApp` controller
+from Day 1-2, reusing the build/run/error-handling pipeline already in place.
+
+**Problem hit (the interesting one):**
+Requests kept failing with "Connection was reset" / "underlying connection
+was closed" — no error, no crash, server logs looked completely clean. Very
+confusing at first since it looked like a networking issue.
+
+**How I debugged it:**
+Ruled out curl/PowerShell syntax issues first (tried curl.exe, then
+Invoke-RestMethod — same failure both ways, which pointed away from a
+client-side problem). Server terminal showed no crash, just clean startup
+logs. Eventually realized: nodemon watches the whole backend folder for
+changes, and git clone was writing files into `backend/tmp/` mid-request —
+nodemon saw new files appear and restarted the server, killing the
+in-flight request before it could respond.
+
+**Solution:**
+Added `nodemon.json` with `{"ignore": ["tmp/*", "tmp/**/*"]}` so nodemon
+stops watching the temp clone directory.
+
+**Reference(s):**
+- nodemon config docs: https://github.com/remy/nodemon#config-files
+- simple-git docs: https://github.com/steveukx/git-js
+
+**Result:**
+POST /deploy with a GitHub URL successfully cloned, built, and deployed a
+live container with an auto-assigned port — confirmed both via API response
+and by visiting the live URL in browser.
+
+**What I'd do differently:**
+This class of bug (dev tool interfering with runtime folders) is sneaky
+because it produces zero application-level errors. Worth remembering:
+"clean logs but connection dies" often means something OUTSIDE your app
+code (process manager, proxy, tool) is killing the connection.
+
+## Day 6-7 — Feature: Auto-detect project type + generate Dockerfile
+
+**Goal:** Let users deploy a repo with NO Dockerfile — detect the project
+type automatically and generate one, the actual "PaaS magic" feature.
+
+**Approach:**
+Created `detect.service.js` — checks for marker files (package.json,
+requirements.txt, index.html, or an existing Dockerfile) to determine
+project type. If no Dockerfile exists, generates one from a template
+per type (Node/Python/static), writing it directly into the cloned repo
+folder before the build step runs.
+
+## Week 3, Day 1 — Feature: React dashboard scaffold + live deployment list
+
+**Goal:** Replace curl-based testing with a real UI showing deployment
+status/history pulled from the backend.
+
+**Approach:**
+Scaffolded with Vite + React (JavaScript, ESLint+Prettier). Created a
+centralized api.js using axios pointed at the backend (localhost:5000).
+App.jsx fetches GET /deployments on mount and renders each as a list item
+with status and a clickable live URL when status is "live".
+
+**Problem hit:** None — straightforward integration since the backend API
+was already solid from Week 1-2.
+
+**Result:** Dashboard at localhost:5173 successfully renders real deployment
+history from MongoDB, including both live and failed attempts from earlier
+testing.
+
+**Observation for later:** Current view shows every deploy attempt as a flat
+list, including repeated old attempts of the same app. Will need to
+distinguish "current live version per app" vs "deploy history" as a future
+UI improvement.
+
+**Reference(s):**
+- Vite docs: https://vite.dev/guide/
+- Axios docs: https://axios-http.com/docs/instance
+
+## Week 3, Day 2-3 — Feature: Deploy form (UI replaces curl workflow)
+
+**Goal:** Let users trigger a deploy entirely through the dashboard instead
+of manually running curl commands with a JSON file.
+
+**Approach:**
+Built DeployForm component with controlled inputs (repoUrl, appName) and a
+loading/error state. On submit, calls POST /deploy via the existing api.js
+axios instance. On success, calls an onDeployed callback passed down from
+App.jsx, which triggers a re-fetch of the deployments list — so the UI
+updates automatically without a manual page refresh.
+
+Also refactored App.jsx to extract DeploymentList into its own component,
+moving both DeployForm and DeploymentList into a components/ folder — proper
+project structure instead of one giant App.jsx file.
+
+**Problem hit:** Initial import error ("Failed to resolve import
+./DeployForm") — the file simply hadn't been created yet before the import
+was added. Also had to remember to update the relative import path (../api
+instead of ./api) after moving files into components/.
+
+**Result:** Full end-to-end deploy tested via UI: submitted a GitHub repo
+URL and app name, watched the loading state, and got a live, clickable app
+URL with zero terminal interaction.
+
+**Reference(s):**
+- React docs on lifting state up: https://react.dev/learn/sharing-state-between-components
+
+**What I'd do differently:** The 15-30 second wait during "Deploying..."
+gives no feedback about WHAT's happening (cloning? building? running?).
+This is exactly what real-time build logs (Day 4) will solve.

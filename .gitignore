@@ -2,6 +2,7 @@
 node_modules/
 backend/node_modules/
 sample-apps/*/node_modules/
+backend/tmp/
 
 # Environment variables (NEVER commit this - contains secrets)
 .env

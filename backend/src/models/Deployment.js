@@ -12,8 +12,11 @@ const deploymentSchema = new mongoose.Schema({
     enum: ['queued', 'building', 'deploying', 'live', 'failed', 'stopped'],
     default: 'queued'
   },
+  errorMessage: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
+
+
 
 module.exports = mongoose.model('Deployment', deploymentSchema);
