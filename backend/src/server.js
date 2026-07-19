@@ -1,7 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+const http = require('http');
 const connectDB = require('./config/db');
+const { initSocket } = require('./socket');
 
 const dockerRoutes = require('./routes/docker.routes');
 const deployRoutes = require('./routes/deploy.routes');
@@ -12,10 +14,13 @@ app.use(express.json());
 
 connectDB();
 
+const server = http.createServer(app);
+initSocket(server);
+
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 app.use('/docker', dockerRoutes);
 app.use('/', deployRoutes);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

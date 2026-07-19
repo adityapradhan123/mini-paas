@@ -3,9 +3,10 @@ const { buildImage, runContainer } = require('../services/docker.service');
 const { cloneRepo } = require('../services/git.service');
 const { detectProjectType, generateDockerfile } = require('../services/detect.service');
 const getPort = require('get-port');
+const { getIO } = require('../socket');
 
-const deployApp = async ({ appName, imageName, contextPath, containerName, hostPort, containerPort }) => {
-  // Create the record immediately so we always have a trace of the attempt
+const deployApp = async ({ appName, imageName, contextPath, containerName, hostPort, containerPort, socketRoom }) => {
+  const io = getIO();
   const deployment = await Deployment.create({
     appName,
     imageName,
@@ -15,12 +16,20 @@ const deployApp = async ({ appName, imageName, contextPath, containerName, hostP
     status: 'building'
   });
 
+  const emitLog = (message) => {
+    if (io && socketRoom) {
+      io.to(socketRoom).emit('build-log', { deploymentId: deployment._id, message });
+    }
+  };
+
   try {
-    await buildImage(contextPath, imageName);
+    emitLog(`Starting build for ${appName}...`);
+    await buildImage(contextPath, imageName, emitLog);
 
     deployment.status = 'deploying';
     deployment.updatedAt = Date.now();
     await deployment.save();
+    emitLog('Build complete. Starting container...');
 
     const containerId = await runContainer(imageName, containerName, hostPort, containerPort);
 
@@ -28,19 +37,19 @@ const deployApp = async ({ appName, imageName, contextPath, containerName, hostP
     deployment.status = 'live';
     deployment.updatedAt = Date.now();
     await deployment.save();
+    emitLog(`Deployment live at port ${hostPort}`);
 
     return deployment;
   } catch (err) {
-    // This is the important part — failures are now recorded, not silent
     deployment.status = 'failed';
     deployment.errorMessage = err.message;
     deployment.updatedAt = Date.now();
     await deployment.save();
+    emitLog(`Deployment failed: ${err.message}`);
 
-    throw err; // still let the route handler know it failed
+    throw err;
   }
 };
-
 
 const handleDeployRequest = async (req, res) => {
   try {
@@ -49,6 +58,10 @@ const handleDeployRequest = async (req, res) => {
     if (!repoUrl || !appName) {
       return res.status(400).json({ success: false, error: 'repoUrl and appName are required' });
     }
+
+    const socketRoom = `deploy-${appName}-${Date.now()}`;
+
+    res.json({ success: true, socketRoom });
 
     const contextPath = await cloneRepo(repoUrl, appName);
     const projectType = detectProjectType(contextPath);
@@ -63,18 +76,17 @@ const handleDeployRequest = async (req, res) => {
     const hostPort = await getPort({ port: getPort.makeRange(3000, 3100) });
     const imageName = `${appName.toLowerCase()}-image`;
 
-    const deployment = await deployApp({
+    await deployApp({
       appName,
       imageName,
       contextPath,
       containerName: `${appName}-container-${Date.now()}`,
       hostPort,
-      containerPort
+      containerPort,
+      socketRoom
     });
-
-    res.json({ success: true, deployment, projectType, url: `http://localhost:${hostPort}` });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('Deploy failed:', err.message);
   }
 };
 

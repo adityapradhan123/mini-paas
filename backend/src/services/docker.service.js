@@ -19,8 +19,8 @@ const pingDocker = async () => {
   }
 };
 
-const buildImage = async (contextPath, imageName) => {
-  const tarStream = tar.pack(contextPath); // packages the folder for Docker
+const buildImage = async (contextPath, imageName, onLog = () => {}) => {
+  const tarStream = tar.pack(contextPath);
 
   return new Promise((resolve, reject) => {
     docker.buildImage(tarStream, { t: imageName }, (err, stream) => {
@@ -28,8 +28,11 @@ const buildImage = async (contextPath, imageName) => {
 
       docker.modem.followProgress(
         stream,
-        (err, res) => (err ? reject(err) : resolve(res)), // onFinished
-        (event) => console.log(event.stream || event) // onProgress - build logs
+        (err, res) => (err ? reject(err) : resolve(res)),
+        (event) => {
+          const message = event.stream || JSON.stringify(event);
+          onLog(message);
+        }
       );
     });
   });

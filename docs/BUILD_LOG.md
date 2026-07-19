@@ -272,3 +272,60 @@ URL with zero terminal interaction.
 **What I'd do differently:** The 15-30 second wait during "Deploying..."
 gives no feedback about WHAT's happening (cloning? building? running?).
 This is exactly what real-time build logs (Day 4) will solve.
+
+## Week 3, Day 4 — Feature: Real-time build logs via Socket.io
+
+**Goal:** Stream live Docker build output to the frontend instead of a
+silent spinner during deploy.
+
+**Approach:**
+Set up Socket.io on the backend (socket.js: initSocket/getIO pattern),
+modified buildImage() to accept an onLog callback instead of only
+console.log, and emit each build step as a `build-log` event to a
+per-deployment "room" (so multiple simultaneous deploys don't cross-talk).
+Frontend uses socket.io-client, joins the room on deploy start, and renders
+incoming messages in a live-updating terminal-style panel.
+
+**Problem hit (a real one — multi-hour debug):**
+Backend logs confirmed sockets were connecting and correctly joining rooms.
+Room names matched exactly between frontend and backend. Yet the frontend
+NEVER received any `build-log` events — no errors anywhere, everything
+LOOKED correct on both sides.
+
+**How I debugged it:**
+Ruled out, one at a time: room name mismatches (confirmed identical),
+multiple browser tabs creating duplicate sockets (confirmed single tab),
+socket ID mismatches (confirmed same ID on both ends), and whether the
+build itself was even running (confirmed deploys were reaching "live"
+status in MongoDB). Added a raw `console.log('=== deployApp CALLED ===',
+{ hasIo: !!io })` marker at the very top of the function — this revealed
+`hasIo: false`. That was the real bug: `io` was undefined every single
+time, meaning the `if (io && socketRoom)` guard inside emitLog was
+silently skipping every emit call, with zero errors anywhere.
+
+Root cause: there were TWO separate Socket.io setups in the codebase.
+`socket.js` (initSocket/getIO) was the one actually running and handling
+connections — visible in the "Client connected"/"joined room" logs the
+whole time. But deploy.controller.js was trying to retrieve `io` via
+`req.app.get('io')`, expecting server.js to have called `app.set('io', io)`
+— which it never did. Two independently-correct-looking pieces of code
+that were never actually wired together.
+
+**Solution:**
+Imported `getIO` from socket.js directly into deploy.controller.js instead
+of relying on Express's app.set/app.get pattern, since socket.js already
+exposed exactly this via getIO().
+
+**Reference(s):**
+- Socket.io rooms docs: https://socket.io/docs/v4/rooms/
+- Socket.io server API: https://socket.io/docs/v4/server-api/
+
+**Key lesson (worth remembering for interviews):**
+"Silent failures are the hardest bugs" — nothing crashed, nothing errored,
+every individual piece looked correct in isolation. The bug only revealed
+itself by adding a blunt, unambiguous marker (hasIo: true/false) at the
+exact boundary between two systems, rather than trusting that "this looks
+right" meant it was connected correctly. Also: when two files both seem to
+set up the same infrastructure (two Socket.io instances in this case),
+that's a signal to check which one is ACTUALLY being used before assuming
+your latest edit is the active code path.

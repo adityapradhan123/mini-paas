@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { deployApp } from '../api';
 
-function DeployForm({ onDeployed }) {
+function DeployForm({ onDeployStarted }) {
   const [repoUrl, setRepoUrl] = useState('');
   const [appName, setAppName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -14,7 +14,7 @@ function DeployForm({ onDeployed }) {
 
     try {
       const res = await deployApp(repoUrl, appName);
-      onDeployed(res.data);
+      onDeployStarted(res.data.socketRoom); // pass the room up to App.jsx
       setRepoUrl('');
       setAppName('');
     } catch (err) {
@@ -45,7 +45,7 @@ function DeployForm({ onDeployed }) {
           style={{ marginRight: '0.5rem' }}
         />
         <button type="submit" disabled={loading}>
-          {loading ? 'Deploying...' : 'Deploy'}
+          {loading ? 'Starting...' : 'Deploy'}
         </button>
       </div>
       {error && <p style={{ color: 'red' }}>{error}</p>}
@@ -54,3 +54,4 @@ function DeployForm({ onDeployed }) {
 }
 
 export default DeployForm;
+
