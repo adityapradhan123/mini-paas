@@ -8,10 +8,10 @@ const deploymentSchema = new mongoose.Schema({
   hostPort: { type: Number },
   containerPort: { type: Number },
   status: {
-    type: String,
-    enum: ['queued', 'building', 'deploying', 'live', 'failed', 'stopped'],
-    default: 'queued'
-  },
+  type: String,
+  enum: ['queued', 'building', 'deploying', 'live', 'failed', 'stopped', 'deleted'],
+  default: 'queued'
+},
   errorMessage: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }

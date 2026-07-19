@@ -329,3 +329,33 @@ right" meant it was connected correctly. Also: when two files both seem to
 set up the same infrastructure (two Socket.io instances in this case),
 that's a signal to check which one is ACTUALLY being used before assuming
 your latest edit is the active code path.
+
+## Week 3, Day 6-7 — Feature: React Router + App Detail Page
+
+**Goal:** Add navigation — clicking a deployment card opens a dedicated
+detail page instead of everything living on one screen.
+
+**Approach:**
+Set up react-router-dom with BrowserRouter in main.jsx. Restructured
+App.jsx to be purely a router (Routes/Route definitions), moved all
+dashboard logic into pages/Dashboard.jsx, and created pages/AppDetail.jsx
+which fetches deployment data by ID from the URL params and displays full
+details (image, container name, port, timestamps, error messages) plus a
+live "Visit" button. Made deployment cards in DeploymentList.jsx clickable
+via Link, navigating to /apps/:id.
+
+**Problem hit:** Standard "file not created yet" import errors when
+setting up new page files — same pattern as earlier component creation
+issues, resolved by actually creating the files before importing them.
+
+**Result:** Full navigation flow works — dashboard list -> click card ->
+detail page -> back button -> dashboard again, with real deployment data
+loading correctly by ID at each step.
+
+**Reference(s):**
+- React Router docs: https://reactrouter.com/en/main
+
+**What I'd do differently:** Detail page currently doesn't have
+redeploy/delete actions — would need new backend endpoints (DELETE
+/deployments/:id, POST /deployments/:id/redeploy) to make those functional.
+Worth adding as a stretch goal if time allows.

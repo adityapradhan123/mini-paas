@@ -54,4 +54,19 @@ const runContainer = async (imageName, containerName, hostPort, containerPort) =
   return container.id;
 };
 
-module.exports = { listContainers, pingDocker,buildImage,runContainer };
+const getContainerStatus = async (containerId) => {
+  try {
+    const container = docker.getContainer(containerId);
+    const info = await container.inspect();
+    return info.State.Running ? 'running' : 'stopped';
+  } catch (err) {
+    // Container doesn't exist at all (was deleted)
+    if (err.statusCode === 404) {
+      return 'not_found';
+    }
+    throw err;
+  }
+};
+
+module.exports = { listContainers, pingDocker, buildImage, runContainer, getContainerStatus };
+

@@ -22,5 +22,11 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 app.use('/docker', dockerRoutes);
 app.use('/', deployRoutes);
 
+const { reconcileDeployments } = require('./services/reconcile.service');
+
+// Check every 15 seconds whether "live" deployments are actually still running
+setInterval(() => {
+  reconcileDeployments().catch((err) => console.error('Reconciliation error:', err.message));
+}, 15000);
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
