@@ -5,7 +5,7 @@ const { detectProjectType, generateDockerfile } = require('../services/detect.se
 const getPort = require('get-port');
 const { getIO } = require('../socket');
 
-const deployApp = async ({ appName, imageName, contextPath, containerName, hostPort, containerPort, socketRoom }) => {
+const deployApp = async ({ appName, imageName, contextPath, containerName, hostPort, containerPort, socketRoom, userId }) => {
   const io = getIO();
   const deployment = await Deployment.create({
     appName,
@@ -13,8 +13,10 @@ const deployApp = async ({ appName, imageName, contextPath, containerName, hostP
     containerName,
     hostPort,
     containerPort,
-    status: 'building'
+    status: 'building',
+    userId
   });
+  // ...rest stays the same
 
   const emitLog = (message) => {
     if (io && socketRoom) {
@@ -52,8 +54,9 @@ const deployApp = async ({ appName, imageName, contextPath, containerName, hostP
 };
 
 const handleDeployRequest = async (req, res) => {
-  try {
+   try {
     const { repoUrl, appName } = req.body;
+    const userId = req.userId; 
 
     if (!repoUrl || !appName) {
       return res.status(400).json({ success: false, error: 'repoUrl and appName are required' });
@@ -76,14 +79,15 @@ const handleDeployRequest = async (req, res) => {
     const hostPort = await getPort({ port: getPort.makeRange(3000, 3100) });
     const imageName = `${appName.toLowerCase()}-image`;
 
-    await deployApp({
+   await deployApp({
       appName,
       imageName,
       contextPath,
       containerName: `${appName}-container-${Date.now()}`,
       hostPort,
       containerPort,
-      socketRoom
+      socketRoom,
+      userId
     });
   } catch (err) {
     console.error('Deploy failed:', err.message);

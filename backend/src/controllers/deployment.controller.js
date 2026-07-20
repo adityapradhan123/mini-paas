@@ -2,7 +2,10 @@ const Deployment = require('../models/Deployment');
 const { removeContainer } = require('../services/docker.service');
 
 const listDeployments = async (req, res) => {
-  const deployments = await Deployment.find({ status: { $ne: 'deleted' } }).sort({ createdAt: -1 });
+  const deployments = await Deployment.find({
+    status: { $ne: 'deleted' },
+    userId: req.userId
+  }).sort({ createdAt: -1 });
   res.json(deployments);
 };
 
@@ -13,6 +16,10 @@ const deleteDeployment = async (req, res) => {
 
     if (!deployment) {
       return res.status(404).json({ success: false, error: 'Deployment not found' });
+    }
+
+    if (deployment.userId.toString() !== req.userId) {
+      return res.status(403).json({ success: false, error: 'You do not have permission to delete this deployment' });
     }
 
     if (deployment.containerId) {

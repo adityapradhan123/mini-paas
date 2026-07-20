@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { getDeployments } from '../api';
+import { useAuth } from '../AuthContext';
 import DeployForm from '../components/DeployForm';
 import DeploymentList from '../components/DeploymentList';
 import BuildLogs from '../components/BuildLogs';
 import socket from '../socket';
 
 function Dashboard() {
+  const { user, logoutUser } = useAuth();
   const [deployments, setDeployments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeSocketRoom, setActiveSocketRoom] = useState(null);
@@ -60,7 +62,26 @@ function Dashboard() {
 
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '800px', margin: '0 auto' }}>
-      <h1>Mini PaaS Dashboard</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1>Mini PaaS Dashboard</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <span style={{ color: '#666', fontSize: '0.9rem' }}>{user?.email}</span>
+          <button
+            onClick={logoutUser}
+            style={{
+              padding: '0.4rem 0.8rem',
+              backgroundColor: '#f1f5f9',
+              border: '1px solid #cbd5e1',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '0.85rem'
+            }}
+          >
+            Log Out
+          </button>
+        </div>
+      </div>
+
       <DeployForm onDeployStarted={handleDeployStarted} />
       <BuildLogs socketRoom={activeSocketRoom} />
 
