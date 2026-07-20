@@ -7,6 +7,8 @@ const { initSocket } = require('./socket');
 
 const dockerRoutes = require('./routes/docker.routes');
 const deployRoutes = require('./routes/deploy.routes');
+const { reconcileDeployments } = require('./services/reconcile.service');
+const authRoutes = require('./routes/auth.routes');
 
 const app = express();
 app.use(cors());
@@ -21,8 +23,9 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 app.use('/docker', dockerRoutes);
 app.use('/', deployRoutes);
+app.use('/auth', authRoutes);
 
-const { reconcileDeployments } = require('./services/reconcile.service');
+
 
 // Check every 15 seconds whether "live" deployments are actually still running
 setInterval(() => {
