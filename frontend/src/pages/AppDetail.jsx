@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { api } from '../api';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { api, deleteDeployment } from '../api';
 
 function AppDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [deployment, setDeployment] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     api.get('/deployments')
@@ -15,6 +17,20 @@ function AppDetail() {
       })
       .finally(() => setLoading(false));
   }, [id]);
+
+  const handleDelete = async () => {
+    const confirmed = window.confirm(`Delete "${deployment.appName}"? This will stop and remove the container permanently.`);
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      await deleteDeployment(id);
+      navigate('/');
+    } catch (err) {
+      alert('Failed to delete: ' + (err.response?.data?.error || err.message));
+      setDeleting(false);
+    }
+  };
 
   if (loading) return <p style={{ padding: '2rem' }}>Loading...</p>;
   if (!deployment) return <p style={{ padding: '2rem' }}>Deployment not found.</p>;
@@ -38,24 +54,39 @@ function AppDetail() {
         )}
       </div>
 
-      {deployment.status === 'live' && (
-        <a
-          href={'http://localhost:' + deployment.hostPort}
-          target="_blank"
-          rel="noreferrer"
+      <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+        {deployment.status === 'live' && (
+          <a
+            href={'http://localhost:' + deployment.hostPort}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#2563eb',
+              color: 'white',
+              borderRadius: '6px',
+              textDecoration: 'none',
+            }}
+          >
+            Visit Live App →
+          </a>
+        )}
+
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
           style={{
-            display: 'inline-block',
-            marginTop: '1.5rem',
             padding: '0.5rem 1rem',
-            backgroundColor: '#2563eb',
+            backgroundColor: '#ef4444',
             color: 'white',
+            border: 'none',
             borderRadius: '6px',
-            textDecoration: 'none',
+            cursor: deleting ? 'not-allowed' : 'pointer',
           }}
         >
-          Visit Live App →
-        </a>
-      )}
+          {deleting ? 'Deleting...' : 'Delete Deployment'}
+        </button>
+      </div>
     </div>
   );
 }

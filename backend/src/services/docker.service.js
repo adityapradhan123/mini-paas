@@ -68,5 +68,25 @@ const getContainerStatus = async (containerId) => {
   }
 };
 
-module.exports = { listContainers, pingDocker, buildImage, runContainer, getContainerStatus };
+const removeContainer = async (containerId) => {
+  const container = docker.getContainer(containerId);
+  try {
+    await container.stop();
+  } catch (err) {
+    // Ignore "already stopped" errors (304), only throw on real problems
+    if (err.statusCode !== 304 && err.statusCode !== 404) {
+      throw err;
+    }
+  }
+  try {
+    await container.remove();
+  } catch (err) {
+    if (err.statusCode !== 404) {
+      throw err;
+    }
+  }
+};
+
+
+module.exports = { listContainers, pingDocker, buildImage, runContainer, getContainerStatus, removeContainer };
 
