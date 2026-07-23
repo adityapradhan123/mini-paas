@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-
 const deploymentSchema = new mongoose.Schema({
   appName: { type: String, required: true },
   imageName: { type: String, required: true },
@@ -7,6 +6,8 @@ const deploymentSchema = new mongoose.Schema({
   containerName: { type: String },
   hostPort: { type: Number },
   containerPort: { type: Number },
+  repoUrl: { type: String },
+  subdirectory: { type: String, default: null },
   status: {
   type: String,
   enum: ['queued', 'building', 'deploying', 'live', 'failed', 'stopped', 'deleted'],
@@ -17,7 +18,4 @@ const deploymentSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 });
-
-
-
 module.exports = mongoose.model('Deployment', deploymentSchema);

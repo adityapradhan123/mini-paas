@@ -4,7 +4,8 @@ const { getIO } = require('../socket');
 
 const reconcileDeployments = async () => {
   const activeDeployments = await Deployment.find({
-    status: { $in: ['live', 'stopped'] }
+    status: { $in: ['live', 'stopped'] },
+    userId: { $exists: true }
   });
 
   let anyChanged = false;

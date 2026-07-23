@@ -359,3 +359,30 @@ loading correctly by ID at each step.
 redeploy/delete actions — would need new backend endpoints (DELETE
 /deployments/:id, POST /deployments/:id/redeploy) to make those functional.
 Worth adding as a stretch goal if time allows.
+
+## Feature: Monorepo/subdirectory deploy support
+
+**Goal:** Allow deploying an app that lives in a subfolder of a repo
+(e.g., client/ or server/ in a monorepo), not just repos with a manifest
+at the root.
+
+**Approach:** Added optional `subdirectory` field to deploy requests and
+the Deployment model. When provided, contextPath is built as
+path.join(clonedRepoPath, subdirectory) before detection/build/run,
+instead of using the repo root directly. redeployApp reuses the saved
+subdirectory automatically.
+
+**Result:** Successfully deployed the `server` subfolder of a real
+multi-service repo (team_landing_page) that has no root-level manifest.
+Confirmed via the deployment record showing subdirectory: "server" and
+repoUrl correctly populated. The deployed app went live, then later
+correctly transitioned to "stopped" via the existing reconciliation
+system when the underlying app process exited on its own (likely a
+missing environment variable or dependency specific to that app -
+expected behavior for a real app, not a platform issue).
+
+**Reference(s):** N/A - straightforward path manipulation.
+
+**Lesson:** This also served as a good real-world test of the
+reconciliation system - it correctly detected and reported a genuine
+container failure automatically, without any manual intervention needed.

@@ -1,28 +1,19 @@
 import { Link } from 'react-router-dom';
 
-const statusColors = {
-  live: '#22c55e',
-  building: '#eab308',
-  deploying: '#eab308',
-  queued: '#94a3b8',
-  failed: '#ef4444',
-  stopped: '#64748b',
-  deleted: '#334155',
+const statusStyles = {
+  live: 'bg-emerald-500',
+  building: 'bg-amber-500',
+  deploying: 'bg-amber-500',
+  queued: 'bg-slate-400',
+  failed: 'bg-rose-500',
+  stopped: 'bg-slate-500',
+  deleted: 'bg-slate-700',
 };
 
 function StatusBadge({ status }) {
   return (
     <span
-      style={{
-        backgroundColor: statusColors[status] || '#94a3b8',
-        color: 'white',
-        padding: '2px 10px',
-        borderRadius: '999px',
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        textTransform: 'uppercase',
-        letterSpacing: '0.03em',
-      }}
+      className={`${statusStyles[status] || 'bg-slate-400'} whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white`}
     >
       {status}
     </span>
@@ -31,59 +22,49 @@ function StatusBadge({ status }) {
 
 function DeploymentList({ deployments }) {
   if (deployments.length === 0) {
-    return <p style={{ color: '#666' }}>No deployments yet. Deploy your first app above.</p>;
+    return (
+      <div className="mt-4 rounded-2xl border border-dashed border-border/70 bg-bg-primary/65 p-6 text-center text-sm text-text-secondary">
+        No deployments yet. Deploy your first app above and it will appear here.
+      </div>
+    );
   }
 
   return (
-    <div>
-      <h2>Deployments</h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        {deployments.map((d) => (
-          <Link
-            to={'/apps/' + d._id}
-            key={d._id}
-            style={{ textDecoration: 'none', color: 'inherit' }}
-          >
-            <div
-              style={{
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '1rem',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                cursor: 'pointer',
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 600, fontSize: '1.05rem' }}>{d.appName}</div>
-                <div style={{ fontSize: '0.85rem', color: '#666' }}>
+    <div className="mt-4 flex flex-col gap-3">
+      {deployments.map((d) => (
+        <Link to={'/apps/' + d._id} key={d._id} className="no-underline">
+          <div className="rounded-[20px] border border-border/70 bg-bg-primary/80 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <div className="truncate text-base font-semibold text-text-primary">{d.appName}</div>
+                  <StatusBadge status={d.status} />
+                </div>
+                <div className="mt-1 text-xs text-text-secondary">
                   {new Date(d.createdAt).toLocaleString()}
                 </div>
                 {d.errorMessage && (
-                  <div style={{ fontSize: '0.8rem', color: '#ef4444', marginTop: '0.25rem' }}>
-                    {d.errorMessage}
-                  </div>
+                  <div className="mt-1 line-clamp-2 text-xs text-rose-500">{d.errorMessage}</div>
                 )}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <StatusBadge status={d.status} />
+
+              <div className="flex items-center gap-3 self-start sm:self-auto">
                 {d.status === 'live' && (
                   <span
                     onClick={(e) => {
                       e.preventDefault();
                       window.open('http://localhost:' + d.hostPort, '_blank');
                     }}
-                    style={{ color: '#2563eb', fontWeight: 500, fontSize: '0.9rem' }}
+                    className="cursor-pointer text-sm font-semibold text-accent transition hover:opacity-80"
                   >
                     Visit →
                   </span>
                 )}
               </div>
             </div>
-          </Link>
-        ))}
-      </div>
+          </div>
+        </Link>
+      ))}
     </div>
   );
 }
